@@ -1,0 +1,14 @@
+[package]
+name = "munin-dam-wsratio"
+version = "0.1.0"
+authors = ["Masahiro Yoshitake <sam-tk@x-day.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+simple-munin-plugin = "^0"
+ureq = { version = "^1" }
+jq-rs = "^0"
+jq-sys = { version = "0.2.2", features = ["bundled"]}
+serde_json = "^0"
