@@ -18,11 +18,11 @@ mod wsr {
         pub fn get_wsr() -> f32 {
             let dam_json_url = "https://www.ktr.mlit.go.jp/tonedamu/teikyo/realtime2/json/E007010.json";
         
-            let resp = ureq::get(dam_json_url).call();
+            let resp = ureq::get(dam_json_url).call().unwrap();
             let body = resp.into_string().unwrap();
             let res = jq_rs::run(".damDataList[-1].dataList[0].waterRate", &body).unwrap();
             let wsr: f32 = serde_json::from_str(&res).unwrap();
-            wsr
+            return wsr
 
         }
     }
