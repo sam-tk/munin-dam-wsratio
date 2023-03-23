@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use simple_munin_plugin::MuninNodePlugin;
 use ureq;
-use jmespath::{self, Variable};
+use jmespath;
 use strip_bom::*;
 
 const FIELD: &'static str = "wsratio";
@@ -13,36 +15,39 @@ impl WsratioPlugin {
     }
 
     pub fn get_wsr() -> f64 {
-        return Self::get_vol() / Self::get_max() * 100.0 
-
-    }
-
-    fn get_max() -> f64 {
         let json_url = "https://www.ktr.mlit.go.jp/tonedamu/teikyo/realtime2/json/E015010.json";
         let resp = ureq::get(json_url).call().unwrap();
         let expr = jmespath::compile("waterCapacityList.dataList.*.to_number(validWaterCapacity) | max(@)").unwrap();
         let body_str = resp.into_string().unwrap();
         let body_str :&str = body_str.strip_bom();
         let data = jmespath::Variable::from_json(&body_str).unwrap();
-        let result = expr.search(data).unwrap();
-        result.as_number().unwrap()
-    }
+        let max_capacity = expr.search(data).unwrap().as_number().unwrap();
+
+        let expr = jmespath::compile("waterCapacityList.dataList.*.{name: observationName, vol: nowWaterCapacity}").unwrap();
+        let data = jmespath::Variable::from_json(&body_str).unwrap();
+        let tmp_result: Vec<HashMap<String, String>> = serde_json::from_str(expr.search(data).unwrap().to_string().as_str()).unwrap();
+        let mut tmp_map: HashMap<String, f64> = HashMap::new();
+        for d in tmp_result {
+            tmp_map.insert(d["name"].to_string(), d["vol"].parse::<f64>().unwrap());
+        }
     
-    fn get_vol() -> f64 {
         let json_url = "https://www.ktr.mlit.go.jp/tonedamu/teikyo/realtime2/json/E007010.json";
         let resp = ureq::get(json_url).call().unwrap();
-        let expr = jmespath::compile("damDataList[?observationName!='５ダム' && observationName!='９ダム'].dataList[0].waterCapacity").unwrap();
+        let expr = jmespath::compile("damDataList[?observationName!='５ダム' && observationName!='９ダム'].{name: observationName, cap: dataList[0].waterCapacity}").unwrap();
         let body_str = resp.into_string().unwrap();
         let body_str :&str = body_str.strip_bom();
         let data = jmespath::Variable::from_json(&body_str).unwrap();
-        let result = expr.search(data).unwrap();
-        let variable: &Variable = &*result;
+        let results: Vec<HashMap<String, String>> = serde_json::from_str(expr.search(data).unwrap().to_string().as_str()).unwrap();
         let mut total = 0.0;
-        for i in variable.as_array().unwrap() {
-            let v = i.to_string().trim_matches('"').to_string().replace(",","").parse::<f64>().unwrap_or(0.0);
-            total = total + v ;
+        for i in results {
+            let mut v = i["cap"].to_string().trim_matches('"').to_string().replace(",", "").parse::<f64>().unwrap_or(-1.0);
+            if v < 0.0 {
+                v = tmp_map[&i["name"]];
+            }
+            total = total + v;
         }
-        total
+
+        return total / max_capacity * 100.0 ; 
     }
     
 }
