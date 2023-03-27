@@ -40,6 +40,9 @@ impl WsratioPlugin {
         let results: Vec<HashMap<String, String>> = serde_json::from_str(expr.search(data).unwrap().to_string().as_str()).unwrap();
         let mut total = 0.0;
         for i in results {
+            #[cfg(debug_assertions)]
+            dbg!(&i);
+
             let mut v = i["cap"].to_string().trim_matches('"').to_string().replace(",", "").parse::<f64>().unwrap_or(-1.0);
             if v < 0.0 {
                 v = tmp_map[&i["name"]];
